@@ -1,0 +1,81 @@
+esphome:
+  name: mq4_gas_sensor
+  platform: ESP32
+  board: esp32dev
+
+wifi:
+  ssid: "Your_WIFI"
+  password: "Your_PASSWORD"
+
+  ap:
+    ssid: "MQ4 Fallback Hotspot"
+    password: "fallback1234"
+
+captive_portal:
+
+logger:
+
+api:
+  reboot_timeout: 0s
+
+ota:
+
+web_server:
+  port: 80
+
+status_led:
+  pin: GPIO2
+
+globals:
+  - id: safe_threshold
+    type: float
+    initial_value: '30.0'
+  - id: danger_threshold
+    type: float
+    initial_value: '75.0'
+
+sensor:
+  - platform: adc
+    pin: GPIO34
+    name: "MQ-4 Gas Level"
+    id: gas_level
+    update_interval: 1s
+    unit_of_measurement: "%"
+    filters:
+      - lambda: return (x / 3.3) * 100;
+
+output:
+  - platform: gpio
+    pin: GPIO21
+    id: green_led
+  - platform: gpio
+    pin: GPIO22
+    id: yellow_led
+  - platform: gpio
+    pin: GPIO23
+    id: red_led
+
+interval:
+  - interval: 1s
+    then:
+      - if:
+          condition:
+            lambda: 'return id(gas_level).state < id(safe_threshold);'
+          then:
+            - output.turn_on: green_led
+            - output.turn_off: yellow_led
+            - output.turn_off: red_led
+      - if:
+          condition:
+            lambda: 'return id(gas_level).state >= id(safe_threshold) && id(gas_level).state < id(danger_threshold);'
+          then:
+            - output.turn_off: green_led
+            - output.turn_on: yellow_led
+            - output.turn_off: red_led
+      - if:
+          condition:
+            lambda: 'return id(gas_level).state >= id(danger_threshold);'
+          then:
+            - output.turn_off: green_led
+            - output.turn_off: yellow_led
+            - output.turn_on: red_led
